@@ -24,15 +24,59 @@ docker run --rm -it \
 
 ## 环境变量
 
+### 本项目自定义
+
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `APP` | `xeyes` | 会话中启动的命令（可带参数），例如 `-e APP=xterm`、`-e APP="xeyes -shape rounded"` |
 | `APP_CLI` | 空 | 追加到 `APP` 之后的参数，例如 `-e APP_CLI="-geometry 800x600"` |
-| `TITLE` | `xeyes` | 浏览器标签标题 |
+| `TITLE` | `xeyes` | 浏览器标签标题（同时用于 PWA manifest 的 `name`/`short_name`） |
 | `PIXELFLUX_WAYLAND` | `true` | `true` 使用 labwc/Wayland 会话，`false` 回退 Openbox/X11 会话 |
 
-基础镜像自带的其它环境变量（`SELKIES_*`、`HARDEN_*`、分辨率等）同样可用，
+### 底包常用变量
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PUID` | `911` | 运行用户 `abc` 的 UID，映射宿主目录属主时使用 |
+| `PGID` | `911` | 运行用户 `abc` 的 GID |
+| `TZ` | `Etc/UTC` | 时区。**不处理 `TZ`**：容器内 `/etc/localtime` 仍指向 `Etc/UTC`（已验证），若需真实时区需自行挂载 `/etc/localtime` |
+| `LC_ALL` | `en_US.UTF-8` | 区域设置。仅当设置了该变量时，初始化脚本才会同时写入 `LANG`/`LANGUAGE`；镜像内已预生成全部 locale（含 `zh_CN.UTF-8`） |
+| `CUSTOM_USER` | `abc` | HTTP 基础认证用户名，仅在同时设置了 `PASSWORD` 时生效 |
+| `PASSWORD` | 空 | HTTP 基础认证密码。设置后 nginx 开启基础认证（`/etc/nginx/.htpasswd`），未设置则直接访问 |
+| `CUSTOM_PORT` | `3000` | 内部 HTTP 端口 |
+| `CUSTOM_HTTPS_PORT` | `3001` | 内部 HTTPS 端口（即映射到宿主机的端口） |
+| `CUSTOM_WS_PORT` | `8082` | 内部 WebSocket 端口 |
+| `SUBFOLDER` | `/` | 反向代理子路径 |
+| `DASHBOARD` | `selkies-dashboard` | 使用的前端 dashboard（另有 `selkies-dashboard-wish`） |
+| `HARDEN_DESKTOP` / `HARDEN_OPENBOX` / `RESTART_APP` | 空 | 硬化/看板机模式，会改写 rc.xml 与二进制权限 |
+
+其余 `SELKIES_*`（编码器、分辨率、剪贴板、文件传输等）同样可用，
 详见 <https://docs.linuxserver.io/selkies/user-guide/configuration/>。
+
+### docker-compose 示例
+
+```yaml
+services:
+  selkies-base:
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base
+    container_name: selkies-base
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Shanghai
+      - LC_ALL=zh_CN.UTF-8
+      - CUSTOM_USER=USER
+      - PASSWORD=PASS
+    ports:
+      - "3001:3001"
+    shm_size: 1gb
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+```
+
+`PASSWORD` 一旦设置，访问 <https://localhost:3001> 会弹出基础认证框，用户名/密码即
+`CUSTOM_USER`/`PASSWORD`；不设置则无需认证直接进入。
 
 ### 示例
 
@@ -47,6 +91,12 @@ docker run --rm -it --shm-size=1gb -p 3001:3001 -e APP=xterm selkies-base
 docker run --rm -it --shm-size=1gb -p 3001:3001 \
   -e PIXELFLUX_WAYLAND=false \
   -e APP=xeyes -e APP_CLI="-geometry 800x600" \
+  selkies-base
+
+# 中文环境 + 基础认证
+docker run --rm -it --shm-size=1gb -p 3001:3001 \
+  -e PUID=1000 -e PGID=1000 -e TZ=Asia/Shanghai -e LC_ALL=zh_CN.UTF-8 \
+  -e CUSTOM_USER=USER -e PASSWORD=PASS \
   selkies-base
 
 # 手动进入容器（不启动 Web 界面时排错）

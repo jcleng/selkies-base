@@ -54,12 +54,29 @@
 
 ### 环境变量
 
+本项目自定义：
+
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
 | `APP` | `xeyes` | 会话中启动的命令（可含参数），这是「用环境变量控制默认启动软件」的开关 |
 | `APP_CLI` | 空 | 追加到 `APP` 之后的参数 |
-| `TITLE` | `xeyes` | 浏览器标签标题 |
+| `TITLE` | `xeyes` | 浏览器标签标题（兼 PWA manifest 名称） |
 | `PIXELFLUX_WAYLAND` | `true` | `true`=labwc/Wayland 会话；`false`=Openbox/X11 会话 |
+
+底包常用变量（完整列表见
+<https://docs.linuxserver.io/selkies/user-guide/configuration/>）：
+
+| 变量 | 默认值 | 作用 |
+| --- | --- | --- |
+| `PUID` / `PGID` | `911` | 运行用户 `abc` 的 UID/GID（`init-adduser` 用 `usermod`/`groupmod` 改写） |
+| `TZ` | `Etc/UTC` | 时区。**底包不处理 `TZ`**（已实测 `/etc/localtime` 仍为 `Etc/UTC`），需要真时区就挂载 `/etc/localtime` |
+| `LC_ALL` | `en_US.UTF-8` | 区域设置，设置后 `init-selkies-config` 同时写入 `LANG`/`LANGUAGE`；镜像已预生成全部 locale |
+| `CUSTOM_USER` | `abc` | HTTP 基础认证用户名 |
+| `PASSWORD` | 空 | 设置后 `init-nginx` 写 `/etc/nginx/.htpasswd` 并开启基础认证 |
+| `CUSTOM_PORT` / `CUSTOM_HTTPS_PORT` / `CUSTOM_WS_PORT` | `3000` / `3001` / `8082` | 内部端口，nginx 配置会按此替换 |
+| `SUBFOLDER` | `/` | 反向代理子路径 |
+| `DASHBOARD` | `selkies-dashboard` | 前端 dashboard 选择 |
+| `HARDEN_*` / `RESTART_APP` | 空 | 硬化/看板机模式 |
 
 `APP` / `APP_CLI` 在 `root/defaults/autostart` 与 `root/defaults/autostart_wayland` 中展开：
 
@@ -70,6 +87,30 @@ exec ${APP} ${APP_CLI}
 
 基础镜像自带的 `SELKIES_*`、`HARDEN_*`、分辨率等变量同样可用，见
 <https://docs.linuxserver.io/selkies/user-guide/configuration/>。
+
+### docker-compose 示例
+
+```yaml
+services:
+  selkies-base:
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base
+    container_name: selkies-base
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Shanghai
+      - LC_ALL=zh_CN.UTF-8
+      - CUSTOM_USER=USER
+      - PASSWORD=PASS
+    ports:
+      - "3001:3001"
+    shm_size: 1gb
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+```
+
+设置 `PASSWORD` 后访问会弹 HTTP 基础认证；不设置则免认证。
 
 ### 修改 autostart / menu 的注意事项
 
