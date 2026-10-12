@@ -1,0 +1,7 @@
+#!/bin/bash
+# Launch the application selected by $APP (defaults to xeyes).
+# Extra flags can be passed through $APP_CLI, e.g. -e APP_CLI="-shape rounded".
+if [ -z "${APP}" ]; then
+  APP="xeyes"
+fi
+exec ${APP} ${APP_CLI}
