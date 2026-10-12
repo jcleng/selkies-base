@@ -9,7 +9,6 @@ FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
 # set version label
 ARG BUILD_DATE
 ARG VERSION
-ARG XEYES_APP
 LABEL build_version="version:- ${VERSION} Build-date:- ${BUILD_DATE}"
 LABEL maintainer="jcleng"
 
