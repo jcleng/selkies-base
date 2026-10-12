@@ -172,7 +172,20 @@ Release：https://github.com/jcleng/action-sync-images/releases/tag/gitbuild-sel
 - 无多架构构建，只有 amd64（与项目「不要 aarch64」的要求一致）。
 - 使用 actions/checkout@v3 等旧版 action，会有 Node.js 20 弃用告警，不影响构建。
 
-## 6. 变更与发布约定
+## 6. 镜像体积
+
+镜像约 **3.95GB**（`docker images` 显示）/ **2.8GB**（解压后 `du -xsh /`），
+其中本项目新增内容（`x11-apps` + `xterm`）仅数十 MB，**绝大部分体积来自 Selkies 底包**。
+
+主要占用：`/usr/lib/x86_64-linux-gnu` ~680M（Mesa/LLVM/Vulkan 图形栈）、
+`/usr/lib/locale` ~411M（`locales-all`）、`/lsiopy` ~318M（selkies/pixelflux/pcmflux venv）、
+`/usr/share/fonts` ~171M（Noto CJK/Emoji）、`/usr/share/locale` ~106M、
+`/usr/lib/firmware` ~104M、`/usr/share/icons` ~49M。
+
+完整表格见 [README.md](README.md#镜像体积说明)。结论：体积由底包决定，
+不要为减小体积去裁剪这个最小示例；真要减体积需另立项目从头重构底包。
+
+## 7. 变更与发布约定
 
 - 分支：`main`，提交信息用中文简述改动。
 - 改完 Dockerfile 或 `root/` 下文件后：
@@ -187,7 +200,7 @@ Release：https://github.com/jcleng/action-sync-images/releases/tag/gitbuild-sel
 - 未经明确要求不要新增 aarch64 支持、不要引入 Selkies Desktop / Pelorus / 浏览器等组件，
   保持镜像最小。
 
-## 7. 参考链接
+## 8. 参考链接
 
 - Selkies 文档：https://docs.linuxserver.io/selkies/
 - 构建自定义镜像：https://docs.linuxserver.io/selkies/developer-guide/building-images/

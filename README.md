@@ -74,3 +74,34 @@ docker run --rm -it --shm-size=1gb -p 3001:3001 selkies-base bash
 - 仅支持 `amd64`。
 - 需要 `--shm-size=1gb`（或更大），否则浏览器/渲染进程可能崩溃。
 - 端口 `3001` 为 HTTPS 自签名证书。
+
+## 镜像体积说明
+
+本镜像基于 `ghcr.io/linuxserver/baseimage-selkies:debiantrixie`，镜像体积较大是**Selkies 底包本身决定的**，不是 `xeyes` 或本仓库 `Dockerfile` 的问题。
+
+### 实测大小
+
+| 项目 | 值 |
+| --- | --- |
+| `docker images` 显示（含层压缩） | `~3.95 GB`（`registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`） |
+| 解压后实际占用（`du -xsh /`） | `~2.8 GB` |
+| 本项目新增内容 | 主要为 `x11-apps`（`xeyes`）与 `xterm`，约数十 MB |
+
+### 主要体积来源
+
+| 目录 | 大小 | 原因 |
+| --- | --- | --- |
+| `/usr/lib/x86_64-linux-gnu` | ~680M | Mesa/LLVM（`libLLVM.so.19.1`、`dri`、`libgallium`、`libz3`、Vulkan 等图形栈） |
+| `/usr/lib/locale` | ~411M | `locales-all`（全语言 locale） |
+| `/lsiopy` | ~318M | Python venv（`selkies`、`pixelflux`、`pcmflux`、`pelorus`） |
+| `/usr/share/fonts` | ~171M | Noto 字体（CJK + Color Emoji） |
+| `/usr/share/locale` | ~106M | gettext 翻译文件 |
+| `/usr/lib/firmware` | ~104M | 非自由固件包 |
+| `/usr/share/icons` | ~49M | 图标主题 |
+| `/usr/share/cmake-3.31` | ~21M | 构建工具元数据 |
+| `/usr/share/selkies` | ~20M | Selkies Web 前端、interposer 等 |
+| `/usr/share/i18n` | ~17M | glibc 区域数据 |
+
+底包包含完整的桌面流式栈（Xvfb/Xwayland、labwc/Openbox、PulseAudio、nginx、s6-overlay 等）以及可选的 DinD 能力，这些是「full featured web native Linux desktop」的设计取向。想大幅减小体积，需要从头重构底包，而不是裁剪这个最小示例。
+
+> 简单结论：**体积主要来自 Selkies 底包，不是本项目的 Dockerfile。**
