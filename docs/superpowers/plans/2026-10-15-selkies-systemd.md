@@ -677,6 +677,21 @@ ConditionPathExists=/dev/cpu_dma_latency
 PermitRootLogin yes
 ```
 
+- [ ] **Step 2b: mask systemd 自带的 dbus（避免与 svc-dbus 抢 system bus）**
+
+底包用 `svc-dbus` 运行 `dbus-daemon --system`；Debian 的 `dbus.service`/`dbus.socket` 若被启用会抢占
+`/run/dbus/system_bus_socket`。用指向 `/dev/null` 的软链把它们 mask 掉（随镜像携带）：
+
+```bash
+cd root/etc/systemd/system
+ln -sf /dev/null dbus.service
+ln -sf /dev/null dbus.socket
+ln -sf /dev/null dbus-broker.service
+cd - >/dev/null
+ls -l root/etc/systemd/system/dbus.*
+```
+Expected: 三个软链均指向 `/dev/null`。
+
 - [ ] **Step 3: 创建 enable 软链（本仓库自带，构建期不跑 systemctl）**
 
 ```bash
@@ -722,8 +737,11 @@ Expected: 只打印 `ENABLE-CHECK-DONE`，无 `MISSING`。
 ```bash
 git add root/etc/systemd/system/docker.service.d/container.conf \
         root/etc/ssh/sshd_config.d/10-selkies.conf \
+        root/etc/systemd/system/dbus.service \
+        root/etc/systemd/system/dbus.socket \
+        root/etc/systemd/system/dbus-broker.service \
         root/etc/systemd/system/multi-user.target.wants
-git commit -m "systemd: 增加 docker/sshd 配置与 enable 软链"
+git commit -m "systemd: 增加 docker/sshd 配置、dbus mask 与 enable 软链"
 ```
 
 ---
@@ -781,6 +799,9 @@ RUN \
     unzip \
     zstd \
     tar && \
+  echo "**** avoid socket-vs-service conflicts ****" && \
+  rm -f /etc/systemd/system/sockets.target.wants/ssh.socket \
+        /etc/systemd/system/sockets.target.wants/docker.socket && \
   echo "**** allow services to run under systemd (drop the docker guards) ****" && \
   dpkg-divert --local --rename --remove /sbin/initctl || true && \
   rm -f /usr/sbin/policy-rc.d /sbin/initctl && \
