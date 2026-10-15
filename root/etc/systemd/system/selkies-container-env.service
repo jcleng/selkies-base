@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies: populate /run/s6/container_environment from PID 1 environment
+After=systemd-tmpfiles-setup.service
+Before=selkies-init-adduser.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/selkies-container-env
+
+[Install]
+WantedBy=multi-user.target

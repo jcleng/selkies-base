@@ -1,0 +1,18 @@
+#!/bin/bash
+# Populate /run/s6/container_environment from PID 1's environment.
+#
+# s6-overlay normally does this in its stage1. We run systemd as PID 1 instead,
+# so we recreate the same envdir layout that the LSIO `with-contenv` helper and
+# the baseimage init scripts expect. Format: one file per variable, filename is
+# the variable name, contents is the value with NO trailing newline.
+set -e
+
+ENVDIR=/run/s6/container_environment
+mkdir -p "$ENVDIR"
+
+while IFS= read -r -d '' entry; do
+  [ -n "$entry" ] || continue
+  name=${entry%%=*}
+  value=${entry#*=}
+  printf '%s' "$value" > "$ENVDIR/$name"
+done < /proc/1/environ
