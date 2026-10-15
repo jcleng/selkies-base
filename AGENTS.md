@@ -261,15 +261,16 @@ gh run list  --repo jcleng/action-sync-images --workflow build-repo.yml --limit 
 gh run watch <run-id> --repo jcleng/action-sync-images
 ```
 
-网络受限时（本机环境）为 `gh` / `curl` / `git` 加代理：
-`https_proxy=http://192.168.195.18:20171`。注意该代理只对本机命令生效，
-CI 在 GitHub 上运行不需要代理。
+本机当前**直连** GitHub / GHCR 可用（`gh`、`git`、`curl` 均无需代理）。
+历史笔记：本机曾用代理 `https_proxy=http://192.168.195.18:20171`，该代理现已失效，请优先直连；
+CI 在 GitHub 上运行，与代理无关。
 
 ### 已执行的构建记录
 
 | 时间(UTC) | Run ID | 结果 | 产物 |
 | --- | --- | --- | --- |
 | 2026-10-12T07:12:16Z | `38216442259` | success（约 3 分钟） | `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`<br>digest `sha256:018cfb1fb661f2615d877b2befdd8b0bdca7a5ae29201f0daefb022c6e28f796` |
+| 2026-10-15T08:15:59Z | `38704432504` | success（约 1 分 41 秒） | `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`<br>digest `sha256:120edfc9a08032d7bf3b45af39f54872e352b679a76d48e1e4ff5711efd09ec3`<br>（**systemd 版**：entrypoint 换为 `/sbin/init`） |
 
 Release：https://github.com/jcleng/action-sync-images/releases/tag/gitbuild-selkies-base
 
