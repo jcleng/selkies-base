@@ -1,0 +1,14 @@
+[Unit]
+Description=Selkies: nginx reverse proxy (3000/3001)
+Requires=selkies-init-services.service
+After=selkies-init-services.service
+
+[Service]
+Type=simple
+UMask=0022
+ExecStart=/etc/s6-overlay/s6-rc.d/svc-nginx/run
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

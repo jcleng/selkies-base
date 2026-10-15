@@ -1,0 +1,14 @@
+[Unit]
+Description=Selkies: system D-Bus
+Requires=selkies-init-services.service selkies-xorg.service
+After=selkies-init-services.service selkies-xorg.service
+
+[Service]
+Type=simple
+UMask=0022
+ExecStart=/etc/s6-overlay/s6-rc.d/svc-dbus/run
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

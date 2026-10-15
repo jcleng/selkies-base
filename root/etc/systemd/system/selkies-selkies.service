@@ -1,0 +1,14 @@
+[Unit]
+Description=Selkies: streaming backend (pixelflux + selkies server)
+Requires=selkies-init-services.service selkies-nginx.service selkies-pulseaudio.service
+After=selkies-init-services.service selkies-nginx.service selkies-pulseaudio.service
+
+[Service]
+Type=simple
+UMask=0022
+ExecStart=/etc/s6-overlay/s6-rc.d/svc-selkies/run
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

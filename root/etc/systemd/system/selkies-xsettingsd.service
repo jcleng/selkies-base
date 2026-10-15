@@ -1,0 +1,14 @@
+[Unit]
+Description=Selkies: xsettingsd (X11 DPI)
+Requires=selkies-init-services.service selkies-nginx.service selkies-xorg.service
+After=selkies-init-services.service selkies-nginx.service selkies-xorg.service
+
+[Service]
+Type=simple
+UMask=0022
+ExecStart=/etc/s6-overlay/s6-rc.d/svc-xsettingsd/run
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

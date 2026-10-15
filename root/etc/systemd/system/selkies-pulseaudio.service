@@ -1,0 +1,14 @@
+[Unit]
+Description=Selkies: PulseAudio
+Requires=selkies-init-services.service
+After=selkies-init-services.service
+
+[Service]
+Type=simple
+UMask=0022
+ExecStart=/etc/s6-overlay/s6-rc.d/svc-pulseaudio/run
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
