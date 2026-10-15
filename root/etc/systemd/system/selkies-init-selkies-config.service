@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: session config, first-run /defaults copy, locale, hardening
+Requires=selkies-init-nginx.service
+After=selkies-init-nginx.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/s6-overlay/s6-rc.d/init-selkies-config/up
+
+[Install]
+WantedBy=multi-user.target

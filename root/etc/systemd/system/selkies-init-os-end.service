@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: OS init complete (marker)
+Requires=selkies-init-adduser.service selkies-init-envfile.service selkies-init-device-perms.service
+After=selkies-init-adduser.service selkies-init-envfile.service selkies-init-device-perms.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

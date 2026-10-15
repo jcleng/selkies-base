@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: FILE__ secret env files
+After=selkies-init-adduser.service
+Requires=selkies-init-adduser.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/s6-overlay/s6-rc.d/init-envfile/run
+
+[Install]
+WantedBy=multi-user.target

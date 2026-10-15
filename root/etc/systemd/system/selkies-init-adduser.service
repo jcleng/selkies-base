@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: adduser (PUID/PGID remap, chown /config)
+After=selkies-container-env.service
+Requires=selkies-container-env.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/s6-overlay/s6-rc.d/init-adduser/run
+
+[Install]
+WantedBy=multi-user.target

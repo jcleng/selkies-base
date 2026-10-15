@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: config end (marker)
+Requires=selkies-init-config.service
+After=selkies-init-config.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

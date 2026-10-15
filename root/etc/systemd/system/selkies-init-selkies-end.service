@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: end of selkies init (marker)
+Requires=selkies-init-video.service
+After=selkies-init-video.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

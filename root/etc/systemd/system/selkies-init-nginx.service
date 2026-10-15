@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: nginx config, TLS cert, dashboard, manifest
+Requires=selkies-init-selkies.service
+After=selkies-init-selkies.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/s6-overlay/s6-rc.d/init-nginx/up
+
+[Install]
+WantedBy=multi-user.target

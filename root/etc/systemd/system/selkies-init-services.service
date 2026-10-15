@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: services may start (marker)
+Requires=selkies-init-custom-files.service
+After=selkies-init-custom-files.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+
+[Install]
+WantedBy=multi-user.target

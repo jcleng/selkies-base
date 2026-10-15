@@ -1,0 +1,12 @@
+[Unit]
+Description=Selkies init: GPU/video device detection
+Requires=selkies-init-selkies-config.service
+After=selkies-init-selkies-config.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/s6-overlay/s6-rc.d/init-video/up
+
+[Install]
+WantedBy=multi-user.target
