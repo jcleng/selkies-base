@@ -125,9 +125,14 @@ PID 1 是 systemd，但**业务逻辑全部复用底包 `/etc/s6-overlay/s6-rc.d
    - `root/usr/local/bin/selkies-wait-dbus` + `selkies-dbus.service` 的 `ExecStartPost=`：等
      `/run/dbus/system_bus_socket` 真正出现后 start job 才算完成，避免竞态。
    修正后 `systemctl is-system-running` 返回 `running`，无 failed 单元。
+5. **禁用 `getty@tty1.service`**。底包 enable 了 tty1 上的 agetty；本镜像是无头 web 桌面（外壳走
+   `docker exec` / ssh），`--privileged` 下 `/dev/tty1` 还可能是宿主控制台。agetty 会反复被 SIGHUP
+   秒退并触发 start-limit，把 systemd 拖成 `degraded`。故构建期
+   `rm -f /etc/systemd/system/getty.target.wants/getty@tty1.service`（仍可手动 `systemctl start`）。
 
-> 上述修正后的运行验证（`--privileged`，全新 `/config`）：8 个常驻服务全部 active，
-> nginx 监听 3000/3001，`curl -k https://localhost:3001/` 返回 200，sshd 监听 22，failed 单元为空。
+> 上述修正后的运行验证（`--privileged`，全新 `/config` + 全新容器）：`systemctl is-system-running`
+> 返回 `running`，failed 单元为空；8 个常驻服务全部 active；nginx 监听 3000/3001，selkies 监听 8082，
+> sshd 监听 22；`curl -k https://localhost:3001/` 返回 200；内层 `docker info` 可用（overlayfs）。
 
 ### 环境变量
 

@@ -47,6 +47,8 @@ RUN \
   echo "**** drop base-enabled units we do not use ****" && \
   rm -f /etc/systemd/system/multi-user.target.wants/nginx.service \
         /etc/systemd/system/multi-user.target.wants/exim4.service && \
+  echo "**** no getty: headless web desktop, agetty on tty1 just fails (degraded) ****" && \
+  rm -f /etc/systemd/system/getty.target.wants/getty@tty1.service && \
   echo "**** allow services to run under systemd (drop the docker guards) ****" && \
   dpkg-divert --local --rename --remove /sbin/initctl || true && \
   rm -f /usr/sbin/policy-rc.d /sbin/initctl && \
