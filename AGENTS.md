@@ -90,7 +90,7 @@ PID 1 是 systemd，但**业务逻辑全部复用底包 `/etc/s6-overlay/s6-rc.d
 2. 底包脚本自带的 shebang `#!/usr/bin/with-contenv bash` 会读取该 envdir 注入环境，因此
    `PATH`（含 `/lsiopy/bin`）、`HOME=/config`、locale、`PUID/PGID` 等照常可见；
    `s6-setuidgid abc`（`/usr/bin/` 下）也能继续把服务降权到 `abc`。
-3. **初始化链**（13 个 oneshot，严格复刻 `dependencies.d` 顺序）：
+3. **初始化链**（14 个 oneshot，严格复刻 `dependencies.d` 顺序）：
    `container-env → adduser → {envfile, device-perms} → os-end → selkies → nginx →
    selkies-config → video → selkies-end → config → config-end → custom-files → services`。
    其中 `os-end`/`selkies`/`selkies-end`/`config`/`config-end`/`services` 是排序用的标记单元
