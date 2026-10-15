@@ -12,6 +12,8 @@
 | 定位 | **最小可用**的 Selkies 使用环境示例 |
 | 基础镜像 | `ghcr.io/linuxserver/baseimage-selkies:debiantrixie` |
 | 架构 | **仅 amd64**（明确不提供 aarch64 / `Dockerfile.aarch64`） |
+| PID 1 | **`systemd`**（`/sbin/init`，取代底包默认的 s6-overlay；s6 仅作为二进制库复用其脚本/helper） |
+| 运行参数 | 推荐 `--privileged --tmpfs /run --tmpfs /tmp --shm-size=1gb` |
 | 默认启动 | `xeyes`（可用环境变量切换为任意软件） |
 | 访问端口 | `3001`（HTTPS，自签名证书） |
 | 持久化卷 | `/config` |
@@ -19,6 +21,10 @@
 
 目标：给出一个能跑起来、结构最小、可作为其它 Selkies 应用镜像起点的样板；不追求功能完整，
 不引入 Selkies Desktop / Pelorus / 浏览器等额外组件。
+
+> 例外：本项目**有意**把 PID 1 换成 systemd，并在镜像中加入 `systemd`、`openssh-server`、
+> `docker-compose-plugin` 及少量运维工具，以便容器内可 `systemctl`、可运行内层 Docker、可安装
+> 宝塔 / 1Panel 等面板。除此之外不引入其它组件。
 
 ## 2. 目录结构
 
@@ -28,29 +34,75 @@
 ├── Dockerfile                      # 镜像定义（仅 amd64）
 ├── README.md                       # 面向用户的使用说明
 ├── .dockerignore                   # 排除 .git / config / *.log
+├── docs/superpowers/               # 设计文档与实现计划
 └── root/                           # 构建上下文根，整体 COPY 到镜像 /
-    └── defaults/
-        ├── autostart               # X11(Openbox) 会话启动命令
-        ├── autostart_wayland       # Wayland(labwc) 会话启动命令
-        ├── menu.xml                # X11 右键菜单
-        └── menu_wayland.xml        # Wayland 右键菜单
+    ├── defaults/
+    │   ├── autostart               # X11(Openbox) 会话启动命令
+    │   ├── autostart_wayland       # Wayland(labwc) 会话启动命令
+    │   ├── menu.xml                # X11 右键菜单
+    │   └── menu_wayland.xml        # Wayland 右键菜单
+    ├── etc/
+    │   ├── ssh/sshd_config.d/10-selkies.conf    # PermitRootLogin yes
+    │   └── systemd/system/                      # systemd 单元（见 §3.1）
+    └── usr/local/bin/
+        ├── selkies-container-env                # PID1 环境 → /run/s6/container_environment
+        └── selkies-root-password                # 按 ROOT_PASSWORD 设置 root 密码
 ```
 
 `root/` 下的路径与镜像内路径一一对应（`COPY /root /`）。基础镜像在首次运行时把
 `/defaults/autostart*`、`/defaults/menu*.xml` 复制到 `/config/.config/{labwc,openbox}/`，
 之后以用户副本为准。
 
+**注意**：`root/etc/systemd/system/multi-user.target.wants/` 下的软链是本仓库自带的
+「enable」产物（构建期不运行 `systemctl enable`，因为构建时 systemd 未运行）。
+其中 `dbus.service` / `dbus.socket` / `dbus-broker.service` 是指向 `/dev/null` 的 **mask** 软链，
+用于屏蔽 systemd 自带的 dbus，避免与底包的 `svc-dbus` 抢占 system bus。
+
 ## 3. Dockerfile 说明
 
 - 首行 `# syntax=docker/dockerfile:1`。
 - `FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie`：amd64 基础镜像（x86_64 only）。
 - `ARG BUILD_DATE` / `ARG VERSION` 仅用于 `LABEL build_version`，由 CI 注入或留空。
-- 安装包：`x11-apps`（提供 `xeyes`）、`xterm`（会话内排错/恢复用），使用
-  `--no-install-recommends`，结尾 `apt-get autoclean` 并清理 `/var/lib/apt/lists/*`、`/tmp/*` 等。
+- 安装包：`x11-apps`（提供 `xeyes`）、`xterm`（会话内排错/恢复用）、`systemd` + `systemd-sysv`、
+  `openssh-server`、`docker-compose-plugin`，以及 `ca-certificates`/`curl`/`wget`/`unzip`/`zstd`/`tar`。
+  使用 `--no-install-recommends`，结尾 `apt-get autoclean` 并清理 `/var/lib/apt/lists/*`、`/tmp/*` 等。
 - 图标：下载 `linuxserver/docker-templates` 的 `selkies-logo.png` 覆盖
   `/usr/share/selkies/www/icon.png`（失败不阻断构建，回退为 `:`）。
-- 末尾 `COPY /root /`、`EXPOSE 3001`、`VOLUME /config`。
+- **移除反-systemd 守卫**（关键）：
+  - `dpkg-divert --local --rename --remove /sbin/initctl` 撤销底包对 `initctl` 的重命名占用；
+  - `rm -f /usr/sbin/policy-rc.d /sbin/initctl` 删除返回 101 的 `policy-rc.d` 与 `initctl` stub。
+  - 否则容器内的面板/软件安装脚本无法 `systemctl enable --now` 服务。
+- 清理可能造成端口冲突的 socket 激活软链：
+  `rm -f /etc/systemd/system/sockets.target.wants/{ssh.socket,docker.socket}`。
+- 末尾 `COPY /root /`、`chmod +x` 两个 helper 脚本、`EXPOSE 3001`、`VOLUME /config`、
+  `STOPSIGNAL SIGRTMIN+3`、`ENTRYPOINT ["/sbin/init"]`、`CMD ["--system","--unit=multi-user.target"]`。
+- 环境变量 `container=docker` 用于提示 systemd 处于容器中。
 - **不要**添加 `Dockerfile.aarch64`，本项目有意只支持 amd64。
+
+### 3.1 systemd 服务与 s6 复用机制
+
+PID 1 是 systemd，但**业务逻辑全部复用底包 `/etc/s6-overlay/s6-rc.d/*` 里的脚本**，没有重写。
+桥接机制：
+
+1. `selkies-container-env.service`（oneshot）运行 `/usr/local/bin/selkies-container-env`，
+   把 `/proc/1/environ` 逐条写入 `/run/s6/container_environment/<NAME>`（**无结尾换行**），
+   复刻 s6 的 envdir 布局。
+2. 底包脚本自带的 shebang `#!/usr/bin/with-contenv bash` 会读取该 envdir 注入环境，因此
+   `PATH`（含 `/lsiopy/bin`）、`HOME=/config`、locale、`PUID/PGID` 等照常可见；
+   `s6-setuidgid abc`（`/usr/bin/` 下）也能继续把服务降权到 `abc`。
+3. **初始化链**（13 个 oneshot，严格复刻 `dependencies.d` 顺序）：
+   `container-env → adduser → {envfile, device-perms} → os-end → selkies → nginx →
+   selkies-config → video → selkies-end → config → config-end → custom-files → services`。
+   其中 `os-end`/`selkies`/`selkies-end`/`config`/`config-end`/`services` 是排序用的标记单元
+   （`ExecStart=/bin/true`），其余执行对应的 `init-*/{run,up}` 脚本。
+4. **常驻服务**（8 个 `Type=simple`）：`selkies-xorg`、`selkies-pulseaudio`、`selkies-nginx`、
+   `selkies-dbus`、`selkies-selkies`、`selkies-de`、`selkies-xsettingsd`、`selkies-watchdog`，
+   分别运行 `svc-*/run`；`selkies-de` 额外用 `ExecStopPost` 调用 `svc-de/finish` 清理会话。
+   所有常驻服务 `After=Requires=selkies-init-services.service`（按各自依赖再叠加）。
+5. `Umask`：统一 `UMask=0022`（放弃底包 `with-contenv` 的 umask 语义）。
+
+**已知坑**：`init-video/run`、`init-selkies-config/run` 会**反向写** `/run/s6/container_environment/*`
+（如 `AUTO_GPU`、`LIBVA_DRIVER_NAME`、`XDG_RUNTIME_DIR`、`LANGUAGE`），因此桥接目录必须存在且机制一致。
 
 ### 环境变量
 
@@ -62,6 +114,7 @@
 | `APP_CLI` | 空 | 追加到 `APP` 之后的参数 |
 | `TITLE` | `xeyes` | 浏览器标签标题（兼 PWA manifest 名称） |
 | `PIXELFLUX_WAYLAND` | `true` | `true`=labwc/Wayland 会话；`false`=Openbox/X11 会话 |
+| `ROOT_PASSWORD` | 空 | 设置容器内 `root` 的 ssh 登录密码（`selkies-root-password.service` 用 `chpasswd` 写入） |
 
 底包常用变量（完整列表见
 <https://docs.linuxserver.io/selkies/user-guide/configuration/>）：
@@ -76,7 +129,10 @@
 | `CUSTOM_PORT` / `CUSTOM_HTTPS_PORT` / `CUSTOM_WS_PORT` | `3000` / `3001` / `8082` | 内部端口，nginx 配置会按此替换 |
 | `SUBFOLDER` | `/` | 反向代理子路径 |
 | `DASHBOARD` | `selkies-dashboard` | 前端 dashboard 选择 |
-| `HARDEN_*` / `RESTART_APP` | 空 | 硬化/看板机模式 |
+
+> **systemd 化后不再生效**：底包 s6-overlay 的扩展钩子 `DOCKER_MODS`、`/custom-services.d`、
+> `HARDEN_*`、`RESTART_APP`、`UMASK` 等不再被处理（本项目不再有 s6 stage1/2）。
+> 上表中的 PUID/PGID、`TZ`、`LC_ALL`、`CUSTOM_USER`/`PASSWORD`、端口、`SELKIES_*`、分辨率等仍照常工作。
 
 `APP` / `APP_CLI` 在 `root/defaults/autostart` 与 `root/defaults/autostart_wayland` 中展开：
 
@@ -85,7 +141,7 @@ if [ -z "${APP}" ]; then APP="xeyes"; fi
 exec ${APP} ${APP_CLI}
 ```
 
-基础镜像自带的 `SELKIES_*`、`HARDEN_*`、分辨率等变量同样可用，见
+基础镜像自带的 `SELKIES_*`、分辨率等变量同样可用，见
 <https://docs.linuxserver.io/selkies/user-guide/configuration/>。
 
 ### docker-compose 示例
@@ -95,6 +151,10 @@ services:
   selkies-base:
     image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base
     container_name: selkies-base
+    privileged: true
+    tmpfs:
+      - /run
+      - /tmp
     environment:
       - PUID=1000
       - PGID=1000
@@ -102,6 +162,7 @@ services:
       - LC_ALL=zh_CN.UTF-8
       - CUSTOM_USER=USER
       - PASSWORD=PASS
+      - ROOT_PASSWORD=ROOTPASS
     ports:
       - "3001:3001"
     shm_size: 1gb
@@ -124,19 +185,25 @@ services:
 ```bash
 docker build -t selkies-base .
 
-docker run --rm -it --shm-size=1gb -p 3001:3001 \
+# systemd 作为 PID 1：推荐 --privileged + 可写 /run /tmp
+docker run -d --privileged --tmpfs /run --tmpfs /tmp --shm-size=1gb -p 3001:3001 \
   -v $PWD/config:/config selkies-base
 # 打开 https://localhost:3001，信任自签名证书
 
 # 切换默认软件
-docker run --rm -it --shm-size=1gb -p 3001:3001 -e APP=xterm selkies-base
+docker run -d --privileged --tmpfs /run --tmpfs /tmp --shm-size=1gb -p 3001:3001 -e APP=xterm selkies-base
 
 # X11 会话 + 自定义参数
-docker run --rm -it --shm-size=1gb -p 3001:3001 \
+docker run -d --privileged --tmpfs /run --tmpfs /tmp --shm-size=1gb -p 3001:3001 \
   -e PIXELFLUX_WAYLAND=false -e APP=xeyes -e APP_CLI="-geometry 800x600" selkies-base
+
+# 会话内排错
+docker exec -it selkies-base bash
+docker exec -it selkies-base systemctl status selkies-selkies selkies-de
 ```
 
 `--shm-size=1gb` 必须给足，否则渲染/浏览器进程可能崩溃。
+不需要内层 Docker 时可不用 `--privileged`，改 `--cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw`。
 
 ## 5. Workflow Actions 构建流程
 
@@ -238,8 +305,11 @@ Release：https://github.com/jcleng/action-sync-images/releases/tag/gitbuild-sel
   docker builder prune -af && docker image prune -af
   ```
 - 涉及 `root/defaults/*` 的改动属于「首次运行才生效」的语义，验证时必须使用全新的 `/config`。
+- 涉及 `root/etc/systemd/system/*` 的改动：新增单元后记得在 `multi-user.target.wants/` 里补软链
+  （本仓库用自带软链代替 `systemctl enable`），并用 `systemd-analyze verify` 校验单元语法。
 - 未经明确要求不要新增 aarch64 支持、不要引入 Selkies Desktop / Pelorus / 浏览器等组件，
-  保持镜像最小。
+  保持镜像最小。**唯一已获授权的例外**是把 PID 1 换成 systemd 并加入 systemd/sshd/docker-cli 等
+  基础组件（见 §1 例外说明）；如需再加其它组件，先与用户确认。
 
 ## 8. 参考链接
 
