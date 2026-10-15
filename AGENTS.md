@@ -301,6 +301,8 @@ CI 在 GitHub 上运行，与代理无关。
 | --- | --- | --- | --- |
 | 2026-10-12T07:12:16Z | `38216442259` | success（约 3 分钟） | `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`<br>digest `sha256:018cfb1fb661f2615d877b2befdd8b0bdca7a5ae29201f0daefb022c6e28f796` |
 | 2026-10-15T08:15:59Z | `38704432504` | success（约 1 分 41 秒） | `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`<br>digest `sha256:120edfc9a08032d7bf3b45af39f54872e352b679a76d48e1e4ff5711efd09ec3`<br>（**systemd 版**：entrypoint 换为 `/sbin/init`） |
+| 2026-10-15T08:52:12Z | `38708756913` | success（约 1 分 49 秒） | digest `sha256:b30f344a1d3d3656ad6b4f60d69ee7d0e1a884841e817e30f93a71dbb76c374a`<br>（修正 `up`→`run`、禁用 Debian nginx/exim4、logind 排序；实测仍剩 `getty@tty1` 失败） |
+| 2026-10-15T08:58:21Z | `38709494981` | success（约 1 分 31 秒） | `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-selkies-base:latest`<br>digest `sha256:98f0b70470784216d8aef581f2e6fd8bc683cf036e0353c68b855032bde4a1c7`<br>（**当前最新**：额外禁用 `getty@tty1`；全新容器实测 `is-system-running=running`、failed 为空、3001=200、内层 docker 可用） |
 
 Release：https://github.com/jcleng/action-sync-images/releases/tag/gitbuild-selkies-base
 
