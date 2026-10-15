@@ -7,6 +7,7 @@ After=selkies-init-services.service selkies-xorg.service
 Type=simple
 UMask=0022
 ExecStart=/etc/s6-overlay/s6-rc.d/svc-dbus/run
+ExecStartPost=/usr/local/bin/selkies-wait-dbus
 Restart=always
 RestartSec=1
 

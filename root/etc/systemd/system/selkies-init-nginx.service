@@ -6,7 +6,7 @@ After=selkies-init-selkies.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/etc/s6-overlay/s6-rc.d/init-nginx/up
+ExecStart=/etc/s6-overlay/s6-rc.d/init-nginx/run
 
 [Install]
 WantedBy=multi-user.target

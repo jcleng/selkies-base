@@ -1,0 +1,21 @@
+#!/bin/bash
+# Wait until the system D-Bus socket exists.
+#
+# selkies-dbus.service runs the baseimage `svc-dbus` script, which execs
+# dbus-daemon in the foreground. With Type=simple systemd considers the unit
+# "started" as soon as the process is spawned, which can be a few milliseconds
+# before dbus-daemon has created /run/dbus/system_bus_socket. Units ordered
+# After=selkies-dbus.service (e.g. systemd-logind) would then fail to connect.
+# Running this as ExecStartPost makes the start job complete only once the
+# socket is actually there.
+set -e
+
+SOCKET=/run/dbus/system_bus_socket
+
+for _ in $(seq 1 100); do
+  [ -S "$SOCKET" ] && exit 0
+  sleep 0.1
+done
+
+echo "selkies-wait-dbus: timed out waiting for $SOCKET" >&2
+exit 1

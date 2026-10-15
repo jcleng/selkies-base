@@ -94,7 +94,7 @@ PID 1 是 systemd，但**业务逻辑全部复用底包 `/etc/s6-overlay/s6-rc.d
    `container-env → adduser → {envfile, device-perms} → os-end → selkies → nginx →
    selkies-config → video → selkies-end → config → config-end → custom-files → services`。
    其中 `os-end`/`selkies`/`selkies-end`/`config`/`config-end`/`services` 是排序用的标记单元
-   （`ExecStart=/bin/true`），其余执行对应的 `init-*/{run,up}` 脚本。
+   （`ExecStart=/bin/true`），其余执行对应的 `init-*/run` 脚本。
 4. **常驻服务**（8 个 `Type=simple`）：`selkies-xorg`、`selkies-pulseaudio`、`selkies-nginx`、
    `selkies-dbus`、`selkies-selkies`、`selkies-de`、`selkies-xsettingsd`、`selkies-watchdog`，
    分别运行 `svc-*/run`；`selkies-de` 额外用 `ExecStopPost` 调用 `svc-de/finish` 清理会话。
@@ -103,6 +103,31 @@ PID 1 是 systemd，但**业务逻辑全部复用底包 `/etc/s6-overlay/s6-rc.d
 
 **已知坑**：`init-video/run`、`init-selkies-config/run` 会**反向写** `/run/s6/container_environment/*`
 （如 `AUTO_GPU`、`LIBVA_DRIVER_NAME`、`XDG_RUNTIME_DIR`、`LANGUAGE`），因此桥接目录必须存在且机制一致。
+
+### 3.2 systemd 化实测坑（首轮运行修正）
+
+首轮 CI 镜像实测发现以下问题，均已修正（详见 `root/` 内对应文件与 Dockerfile）：
+
+1. **必须调 `run`，不能调 `up`**。底包里 `init-*/up` 是 **644 不可执行**的间接指向文件，内容只有一行
+   “`/etc/s6-overlay/s6-rc.d/init-<x>/run`”；真正可执行的脚本是 `init-*/run`（755）。
+   早先 `selkies-init-nginx/-selkies-config/-video` 三个单元误用 `up`，导致 `status=203/EXEC`。
+2. **禁用底包 enable 的 Debian `nginx.service`**。底包在 `/etc/systemd/system/multi-user.target.wants/`
+   里 enable 了 Debian 自带 nginx（监听 80），它会与我们的 `selkies-nginx.service`（svc-nginx，监听
+   3000/3001）争用同一份 `/etc/nginx/nginx.conf`。Dockerfile 构建期 `rm -f …/multi-user.target.wants/nginx.service`。
+3. **禁用 `exim4.service`**。本镜像不需要 MTA，且其因 `/var/log/exim4/mainlog` 权限问题启动失败。
+   同样在构建期 `rm -f …/multi-user.target.wants/exim4.service`。
+4. **`systemd-logind` 需排在 `selkies-dbus` 之后**。logind 启动时连 system bus；而我们 mask 了 systemd
+   自带的 `dbus.service`，system bus 由 `selkies-dbus.service`（`svc-dbus`）提供。Debian 自带的
+   `systemd-logind.service.d/dbus.conf` 只判断 dbus **二进制是否存在**，在这里起不到保护作用，logind
+   会在 bus 就绪前重试 5 次并永久失败（`Failed to connect to system bus: No such file or directory`）。
+   修正：
+   - `root/etc/systemd/system/systemd-logind.service.d/selkies.conf`：`After=`/`Wants=selkies-dbus.service`；
+   - `root/usr/local/bin/selkies-wait-dbus` + `selkies-dbus.service` 的 `ExecStartPost=`：等
+     `/run/dbus/system_bus_socket` 真正出现后 start job 才算完成，避免竞态。
+   修正后 `systemctl is-system-running` 返回 `running`，无 failed 单元。
+
+> 上述修正后的运行验证（`--privileged`，全新 `/config`）：8 个常驻服务全部 active，
+> nginx 监听 3000/3001，`curl -k https://localhost:3001/` 返回 200，sshd 监听 22，failed 单元为空。
 
 ### 环境变量
 

@@ -44,6 +44,9 @@ RUN \
   echo "**** avoid socket-vs-service conflicts ****" && \
   rm -f /etc/systemd/system/sockets.target.wants/ssh.socket \
         /etc/systemd/system/sockets.target.wants/docker.socket && \
+  echo "**** drop base-enabled units we do not use ****" && \
+  rm -f /etc/systemd/system/multi-user.target.wants/nginx.service \
+        /etc/systemd/system/multi-user.target.wants/exim4.service && \
   echo "**** allow services to run under systemd (drop the docker guards) ****" && \
   dpkg-divert --local --rename --remove /sbin/initctl || true && \
   rm -f /usr/sbin/policy-rc.d /sbin/initctl && \
@@ -59,7 +62,7 @@ RUN \
 COPY /root /
 
 # make helper scripts executable regardless of checkout file modes
-RUN chmod +x /usr/local/bin/selkies-container-env /usr/local/bin/selkies-root-password
+RUN chmod +x /usr/local/bin/selkies-container-env /usr/local/bin/selkies-root-password /usr/local/bin/selkies-wait-dbus
 
 # ports and volumes
 EXPOSE 3001
